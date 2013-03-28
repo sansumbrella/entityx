@@ -1,10 +1,16 @@
 from _entityx import _Entity
 
 
-__all__ = ['Entity']
+__all__ = ['Entity', 'Component']
 
 
 class Entity(_Entity):
+    """Base Entity class.
+
+    Python Enitities differ in semantics from C++ components, in that they
+    contain logic.
+    """
+
     def __init__(self, entity):
         super(Entity, self).__init__(entity)
         self._components = {}

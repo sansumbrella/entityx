@@ -40,6 +40,8 @@ private:
 struct PythonEntity {
   PythonEntity(Entity entity) : _entity(entity) {}
 
+  void update(float dt) {}
+
   Entity _entity;
 };
 
@@ -48,17 +50,18 @@ BOOST_PYTHON_MODULE(_entityx) {
   py::class_<PythonEntityXLogger>("_Logger")
     .def("write", &PythonEntityXLogger::write);
   py::class_<PythonEntity>("_Entity", py::init<Entity>())
-    .def_readonly("_entity", &PythonEntity::_entity);
+    .def_readonly("_entity", &PythonEntity::_entity)
+    .def("update", &PythonEntity::update);
   py::class_<Entity>("_RawEntity");
 }
 
 
 static void log_to_stderr(const std::string &text) {
-  LOG(WARNING) << "script: " << text;
+  LOG(WARNING) << "python: " << text;
 }
 
 static void log_to_stdout(const std::string &text) {
-  LOG(INFO) << "script: " << text;
+  LOG(INFO) << "python: " << text;
 }
 
 // PythonSystem below here
@@ -89,7 +92,6 @@ void PythonSystem::initialize() {
 }
 
 void PythonSystem::configure(EventManager &events) {
-  events.subscribe<EntityCreatedEvent>(*this);
   events.subscribe<EntityDestroyedEvent>(*this);
   events.subscribe<ComponentAddedEvent<PythonEntityComponent>>(*this);
 
@@ -136,10 +138,10 @@ void PythonSystem::log_to(LoggerFunction stdout, LoggerFunction stderr) {
   stderr_ = stderr;
 }
 
-void PythonSystem::receive(const EntityCreatedEvent &event) {
-}
-
 void PythonSystem::receive(const EntityDestroyedEvent &event) {
+  for (auto proxy : event_proxies_) {
+    proxy->delete_receiver(event.entity);
+  }
 }
 
 void PythonSystem::receive(const ComponentAddedEvent<PythonEntityComponent> &event) {
@@ -152,6 +154,12 @@ void PythonSystem::receive(const ComponentAddedEvent<PythonEntityComponent> &eve
     args.append(event.entity);
     args.extend(event.component->args);
     event.component->object = cls(*py::tuple(args));
+  }
+
+  for (auto proxy : event_proxies_) {
+    if (proxy->can_send(event.component->object)) {
+      proxy->add_receiver(event.entity);
+    }
   }
 }
 

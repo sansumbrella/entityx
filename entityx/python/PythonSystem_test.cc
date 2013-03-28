@@ -15,6 +15,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
 #include "entityx/Entity.h"
+#include "entityx/Event.h"
 #include "entityx/python/PythonSystem.h"
 
 using namespace std;
@@ -43,6 +44,26 @@ struct PythonPosition : public Position, public enable_shared_from_this<PythonPo
 };
 
 
+struct CollisionEvent : public Event<CollisionEvent> {
+  CollisionEvent(Entity a, Entity b) : a(a), b(b) {}
+
+  Entity a, b;
+};
+
+struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionEvent> {
+  CollisionEventProxy() : PythonEventProxy("on_collision") {}
+
+  void receive(const CollisionEvent &event) {
+    for (auto entity : entities) {
+      auto py_entity = entity.template component<PythonEntityComponent>();
+      if (entity == event.a || entity == event.b) {
+        py_entity->object.attr("on_collision")(event);
+      }
+    }
+  }
+};
+
+
 BOOST_PYTHON_MODULE(entityx_python_test) {
   py::class_<PythonPosition, shared_ptr<PythonPosition>>("Position", py::init<py::optional<float, float>>())
     .def("assign_to", &PythonPosition::assign_to)
@@ -50,6 +71,9 @@ BOOST_PYTHON_MODULE(entityx_python_test) {
     .staticmethod("get_component")
     .def_readwrite("x", &PythonPosition::x)
     .def_readwrite("y", &PythonPosition::y);
+  py::class_<CollisionEvent>("Collision", py::init<Entity, Entity>())
+    .def_readonly("a", &CollisionEvent::a)
+    .def_readonly("b", &CollisionEvent::b);
 }
 
 
@@ -64,6 +88,7 @@ protected:
     vector<string> paths;
     paths.push_back(ENTITYX_PYTHON_TEST_DATA);
     system = make_shared<PythonSystem>(paths);
+    system->add_event_proxy<CollisionEvent>(ev, boost::make_shared<CollisionEventProxy>());
   }
 
   void TearDown() {
@@ -145,6 +170,30 @@ TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
     ASSERT_TRUE(position);
     ASSERT_EQ(position->x, 4.0);
     ASSERT_EQ(position->y, 5.0);
+  } catch (...) {
+    PyErr_Print();
+    PyErr_Clear();
+    throw;
+  }
+}
+
+
+TEST_F(PythonSystemTest, TestEventDelivery) {
+  try {
+    system->configure(ev);
+    Entity f = em.create();
+    Entity e = em.create();
+    Entity g = em.create();
+    auto scripte = e.assign<PythonEntityComponent>("entityx.tests.event_test", "EventTest");
+    auto scriptf = f.assign<PythonEntityComponent>("entityx.tests.event_test", "EventTest");
+    ASSERT_FALSE(scripte->object.attr("collided"));
+    ASSERT_FALSE(scriptf->object.attr("collided"));
+    ev.emit<CollisionEvent>(f, g);
+    ASSERT_TRUE(scriptf->object.attr("collided"));
+    ASSERT_FALSE(scripte->object.attr("collided"));
+    ev.emit<CollisionEvent>(e, f);
+    ASSERT_TRUE(scriptf->object.attr("collided"));
+    ASSERT_TRUE(scripte->object.attr("collided"));
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();

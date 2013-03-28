@@ -8,6 +8,8 @@
  * Author: Alec Thomas <alec@swapoff.org>
  */
 
+#pragma once
+
 #include <vector>
 #include <string>
 #include <boost/function.hpp>
@@ -43,6 +45,53 @@ private:
 };
 
 
+class PythonEventProxy {
+public:
+  PythonEventProxy(const std::string &handler_name) : handler_name(handler_name) {}
+  virtual ~PythonEventProxy() {}
+
+  void add_receiver(Entity entity) {
+    entities.push_back(entity);
+  }
+
+  void delete_receiver(Entity entity) {
+    for (auto i = entities.begin(); i != entities.end(); ++i) {
+      if (entity == *i) {
+        entities.erase(i);
+        break;
+      }
+    }
+  }
+
+  virtual bool can_send(const boost::python::object &object) const {
+    return PyObject_HasAttrString(object.ptr(), handler_name.c_str());
+  }
+
+protected:
+  std::vector<Entity> entities;
+  const std::string handler_name;
+};
+
+
+/**
+ * A PythonEventProxy that broadcasts events to all entities with a matching
+ * handler method.
+ */
+template <typename Event>
+class BroadcastPythonEventProxy : public PythonEventProxy, public Receiver<BroadcastPythonEventProxy<Event>> {
+public:
+  BroadcastPythonEventProxy(const std::string &handler_name) : PythonEventProxy(handler_name) {}
+  virtual ~BroadcastPythonEventProxy() {}
+
+  void receive(const Event &event) {
+    for (auto entity : entities) {
+      auto py_entity = entity.template component<PythonEntityComponent>();
+      py_entity->object.attr(handler_name.c_str())(event);
+    }
+  }
+};
+
+
 class PythonSystem : public entityx::System<PythonSystem>, public entityx::Receiver<PythonSystem> {
 public:
   typedef boost::function<void (const std::string &)> LoggerFunction;
@@ -56,7 +105,19 @@ public:
 
   void log_to(LoggerFunction stdout, LoggerFunction stderr);
 
-  void receive(const EntityCreatedEvent &event);
+  template <typename Event>
+  void add_event_proxy(EventManager &event_manager, const std::string &handler_name) {
+    auto proxy = boost::make_shared<BroadcastPythonEventProxy<Event>>(handler_name);
+    event_manager.subscribe<Event>(*proxy);
+    event_proxies_.push_back(boost::static_pointer_cast<PythonEventProxy>(proxy));
+  }
+
+  template <typename Event, typename Proxy>
+  void add_event_proxy(EventManager &event_manager, boost::shared_ptr<Proxy> proxy) {
+    event_manager.subscribe<Event>(*proxy);
+    event_proxies_.push_back(boost::static_pointer_cast<PythonEventProxy>(proxy));
+  }
+
   void receive(const EntityDestroyedEvent &event);
   void receive(const ComponentAddedEvent<PythonEntityComponent> &event);
 private:
@@ -65,6 +126,7 @@ private:
   const std::vector<std::string> python_paths_;
   LoggerFunction stdout_, stderr_;
   static bool initialized_;
+  std::vector<boost::shared_ptr<PythonEventProxy>> event_proxies_;
 };
 
 }
