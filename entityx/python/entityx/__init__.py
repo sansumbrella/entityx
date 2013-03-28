@@ -15,6 +15,9 @@ class Entity(_Entity):
         super(Entity, self).__init__(entity)
         self._components = {}
 
+    def update(self, dt):
+        """Update method called each game tick."""
+
 
 class Component(object):
     """A descriptor that manages Component creation.
