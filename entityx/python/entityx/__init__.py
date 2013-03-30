@@ -31,16 +31,18 @@ class Component(object):
             self.position.x = x
             self.position.y = y
     """
-    def __init__(self, cls):
+    def __init__(self, cls, *args, **kwargs):
         self._cls = cls
         self._component = None
+        self._args = args
+        self._kwargs = kwargs
 
     def __get__(self, obj, type=None):
         component = obj._components.get(self._cls)
         if component is None:
             component = self._cls.get_component(obj._entity)
             if not component:
-                component = self._cls()
+                component = self._cls(*self._args, **self._kwargs)
                 component.assign_to(obj._entity)
             obj._components[self._cls] = component
         return component

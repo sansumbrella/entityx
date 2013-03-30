@@ -47,12 +47,12 @@ struct PythonEntity {
 
 
 BOOST_PYTHON_MODULE(_entityx) {
-  py::class_<PythonEntityXLogger>("_Logger")
+  py::class_<PythonEntityXLogger>("_Logger", py::no_init)
     .def("write", &PythonEntityXLogger::write);
   py::class_<PythonEntity>("_Entity", py::init<Entity>())
     .def_readonly("_entity", &PythonEntity::_entity)
     .def("update", &PythonEntity::update);
-  py::class_<Entity>("_RawEntity");
+  py::class_<Entity>("_RawEntity", py::no_init);
 }
 
 

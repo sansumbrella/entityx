@@ -22,13 +22,19 @@ To add scripting support to your system, something like the following steps shou
 
 ## Interfacing with Python
 
-Use standard `boost::python` to achieve this, with some caveats.
+`entityx::python` primarily uses standard `boost::python` to interface with Python, with some helper classes.
 
-### Exposing C++ `Component` implementations to Python
+### Exposing C++ Components to Python
 
-To expose `Component`s to Python you will need to subclass the raw component and follow this pattern:
+To expose `Component`s to Python you will need to subclass the raw component and conform to the following:
 
-```c++
+1. Subclass from `enable_shared_from_this<PythonPosition>`.
+2. Implement `void assign_to(Entity &entity)`. This is called from Python to assign a newly constructed component to an entity.
+3. Implement `static shared_ptr<PythonPosition> get_component(Entity &entity)`. This is called from Python to retrieve an existing component from an entity.
+4. Expose the class and its `assign_to` and `get_component` methods to Python, in addition to any other attributes (`x` and `y` in this example).
+
+
+```
 struct Position : public Component<Position> {
   Position(float x = 0.0, float y = 0.0) : x(x), y(y) {}
 
@@ -57,9 +63,59 @@ BOOST_PYTHON_MODULE(mygame) {
 }
 ```
 
-Note that `PythonPosition` must:
+Initialize the module once, before using `PythonSystem`, with something like this:
 
-1. Subclass from `enable_shared_from_this<PythonPosition>`.
-2. Implement `void assign_to(Entity &entity)`. This is called from Python to assign a newly constructed component to an entity.
-3. Implement `static shared_ptr<PythonPosition> get_component(Entity &entity)`. This is called from Python to retrieve an existing component from an entity.
-4. Expose the class and its `assign_to` and `get_component` methods to Python, in addition to any other attributes (`x` and `y` in this example).
+```
+CHECK(PyImport_AppendInittab("mygame", initmygame) != -1)
+  << "Failed to initialize mygame Python module";
+
+```
+
+### Delivering events to Python entities
+
+Unlike in C++, where events are typically handled by systems, in Python
+entities receive events. To bridge this gap, EntityX::Python provides a
+`PythonEventProxy` class that receives C++ events and proxies them to
+Python entities that can receive the event, as determined by the virtual
+method `PythonEventProxy::can_send()` method.
+
+A helper template class called `BroadcastPythonEventProxy<Event>` is provided
+that will broadcast events to any entity with the corresponding handler method.
+
+To implement more refined logic, subclass `PythonEventProxy` and operate on
+the protected member `entities`. Here's a collision example:
+
+```
+struct CollisionEvent : public Event<CollisionEvent> {
+  CollisionEvent(Entity a, Entity b) : a(a), b(b) {}
+
+  Entity a, b;
+};
+
+struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionEvent> {
+  CollisionEventProxy() : PythonEventProxy("on_collision") {}
+
+  void receive(const CollisionEvent &event) {
+    // "entities" is a protected data member populated by
+    // PythonSystem with Python entities that pass can_send().
+    for (auto entity : entities) {
+      auto py_entity = entity.template component<PythonEntityComponent>();
+      if (entity == event.a || entity == event.b) {
+        py_entity->object.attr(handler_name.c_str())(event);
+      }
+    }
+  }
+};
+
+BOOST_PYTHON_MODULE(mygame) {
+  py::class_<CollisionEvent>("Collision", py::init<Entity, Entity>())
+    .def_readonly("a", &CollisionEvent::a)
+    .def_readonly("b", &CollisionEvent::b);
+}
+```
+
+Finally,
+
+```
+pysystem->add_event_proxy<CollisionEvent>(ev, boost::make_shared<CollisionEventProxy>());
+```
