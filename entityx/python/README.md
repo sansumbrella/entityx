@@ -5,7 +5,7 @@ This system adds the ability to extend entity logic with Python scripts. The goa
 ## Concepts
 
 - Python scripts are attached to entities with `PythonEntityComponent`.
-- Events are proxied directly to script methods through `PythonEventProxy` objects.
+- Events are proxied directly to Python entities via `PythonEventProxy` objects.
 - `PythonSystem` manages scripted entity lifecycle and event delivery.
 
 ## Overview
@@ -17,73 +17,64 @@ To add scripting support to your system, something like the following steps shou
 3. Create a Python package.
 4. Add classes to the package, inheriting from `entityx.Entity` and using the `entityx.Component` descriptor to assign components.
 5. Create a `PythonSystem`, passing in the list of paths to add to Python's import search path.
-6. Optionally attach any event proxies
-4. Create an entity and associate it with a Python script by assigning `PythonEntityComponent`, passing it the package name, class name, and any constructor arguments.
+6. Optionally attach any event proxies.
+7. Create an entity and associate it with a Python script by assigning `PythonEntityComponent`, passing it the package name, class name, and any constructor arguments.
 
 ## Interfacing with Python
 
-`entityx::python` primarily uses standard `boost::python` to interface with Python, with some helper classes.
+`entityx::python` primarily uses standard `boost::python` to interface with Python, with some helper classes and functions.
 
 ### Exposing C++ Components to Python
 
-To expose `Component`s to Python you will need to subclass the raw component and conform to the following:
+In most cases, this should be pretty simple. Given a component, provide a `boost::python` class definition, with two extra methods defined with EntityX::Python helper functions `assign_to<Component>` and `get_component<Component>`. These are used from Python to assign Python-created components to an entity and to retrieve existing components from an entity, respectively.
 
-1. Subclass from `enable_shared_from_this<PythonPosition>`.
-2. Implement `void assign_to(Entity &entity)`. This is called from Python to assign a newly constructed component to an entity.
-3. Implement `static shared_ptr<PythonPosition> get_component(Entity &entity)`. This is called from Python to retrieve an existing component from an entity.
-4. Expose the class and its `assign_to` and `get_component` methods to Python, in addition to any other attributes (`x` and `y` in this example).
-
+Here's an example:
 
 ```
+namespace py = boost::python;
+
 struct Position : public Component<Position> {
   Position(float x = 0.0, float y = 0.0) : x(x), y(y) {}
 
   float x, y;
 };
 
-struct PythonPosition : public Position, public enable_shared_from_this<PythonPosition> {
-  PythonPosition(float x = 0.0, float y = 0.0) : Position(x, y) {}
-
-  void assign_to(Entity &entity) {
-    entity.assign<PythonPosition>(shared_from_this());
-  }
-
-  static shared_ptr<PythonPosition> get_component(Entity &entity) {
-    return entity.component<PythonPosition>();
-  }
-};
-
-BOOST_PYTHON_MODULE(mygame) {
+void export_position_to_python() {
   py::class_<PythonPosition, shared_ptr<PythonPosition>>("Position", py::init<py::optional<float, float>>())
-    .def("assign_to", &PythonPosition::assign_to)
-    .def("get_component", &PythonPosition::get_component)
+    .def("assign_to", &entityx::python::assign_to<Position>)
+    .def("get_component", &entityx::python::get_component<Position>)
     .staticmethod("get_component")
     .def_readwrite("x", &PythonPosition::x)
     .def_readwrite("y", &PythonPosition::y);
 }
-```
 
-Initialize the module once, before using `PythonSystem`, with something like this:
-
-```
-CHECK(PyImport_AppendInittab("mygame", initmygame) != -1)
-  << "Failed to initialize mygame Python module";
-
+BOOST_PYTHON_MODULE(mygame) {
+  export_position_to_python();
+}
 ```
 
 ### Delivering events to Python entities
 
-Unlike in C++, where events are typically handled by systems, in Python
-entities receive events. To bridge this gap, EntityX::Python provides a
-`PythonEventProxy` class that receives C++ events and proxies them to
-Python entities that can receive the event, as determined by the virtual
-method `PythonEventProxy::can_send()` method.
+Unlike in C++, where events are typically handled by systems, EntityX::Python
+explicitly provides support for sending events to entities. To bridge this gap
+use the `PythonEventProxy` class to receive C++ events and proxy them to
+Python entities.
+
+The class takes a single parameter, which is the name of the attribute on a
+Python entity. If this attribute exists, the entity will be added to
+`PythonEventProxy::entities (std::list<Entity>)`, so that matching entities
+will be accessible from any event handlers.
+
+This checking is performed in `PythonEventProxy::can_send()`, and can be
+overridden, but further checking can also be done in the event `receive()`
+method.
 
 A helper template class called `BroadcastPythonEventProxy<Event>` is provided
 that will broadcast events to any entity with the corresponding handler method.
 
 To implement more refined logic, subclass `PythonEventProxy` and operate on
-the protected member `entities`. Here's a collision example:
+the protected member `entities`. Here's a collision example, where the proxy
+only delivers collision events to the colliding entities themselves:
 
 ```
 struct CollisionEvent : public Event<CollisionEvent> {
@@ -96,8 +87,8 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
   CollisionEventProxy() : PythonEventProxy("on_collision") {}
 
   void receive(const CollisionEvent &event) {
-    // "entities" is a protected data member populated by
-    // PythonSystem with Python entities that pass can_send().
+    // "entities" is a protected data member, populated by
+    // PythonSystem, with Python entities that pass can_send().
     for (auto entity : entities) {
       auto py_entity = entity.template component<PythonEntityComponent>();
       if (entity == event.a || entity == event.b) {
@@ -107,15 +98,39 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
   }
 };
 
-BOOST_PYTHON_MODULE(mygame) {
+void export_collision_event_to_python() {
   py::class_<CollisionEvent>("Collision", py::init<Entity, Entity>())
     .def_readonly("a", &CollisionEvent::a)
     .def_readonly("b", &CollisionEvent::b);
 }
+
+
+BOOST_PYTHON_MODULE(mygame) {
+  export_position_to_python();
+  export_collision_event_to_python();
+}
 ```
 
-Finally,
+### Initialization
+
+Finally, initialize the `mygame` module once, before using `PythonSystem`, with something like this:
 
 ```
-pysystem->add_event_proxy<CollisionEvent>(ev, boost::make_shared<CollisionEventProxy>());
+// This should only be performed once, at application initialization time.
+CHECK(PyImport_AppendInittab("mygame", initmygame) != -1)
+  << "Failed to initialize mygame Python module";
+```
+
+Then create and destroy `PythonSystem` as necessary:
+
+```
+// Initialize the PythonSystem.
+vector<string> paths;
+paths.push_back(MYGAME_PYTHON_PATH);
+// +any other Python paths...
+auto script_system = make_shared<PythonSystem>(paths);
+
+// Add any Event proxies.
+script_system->add_event_proxy<CollisionEvent>(
+    ev, boost::make_shared<CollisionEventProxy>());
 ```

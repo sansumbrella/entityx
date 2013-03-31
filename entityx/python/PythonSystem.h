@@ -68,9 +68,28 @@ public:
   }
 
 protected:
-  std::vector<Entity> entities;
+  std::list<Entity> entities;
   const std::string handler_name;
 };
+
+
+/**
+ * A helper function for class_ to assign a component to an entity.
+ */
+template <typename C>
+void assign_to(boost::shared_ptr<C> c, Entity &entity) {
+  entity.assign<C>(c);
+}
+
+
+/**
+ * A helper function for retrieving an existing component associated with an
+ * entity.
+ */
+template <typename C>
+boost::shared_ptr<C> get_component(Entity &entity) {
+  return entity.component<C>();
+}
 
 
 /**

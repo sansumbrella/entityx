@@ -24,23 +24,11 @@ namespace py = boost::python;
 using namespace entityx;
 using namespace entityx::python;
 
+
 struct Position : public Component<Position> {
   Position(float x = 0.0, float y = 0.0) : x(x), y(y) {}
 
   float x, y;
-};
-
-
-struct PythonPosition : public Position, public enable_shared_from_this<PythonPosition> {
-  PythonPosition(float x = 0.0, float y = 0.0) : Position(x, y) {}
-
-  void assign_to(Entity &entity) {
-    entity.assign<PythonPosition>(shared_from_this());
-  }
-
-  static shared_ptr<PythonPosition> get_component(Entity &entity) {
-    return entity.component<PythonPosition>();
-  }
 };
 
 
@@ -49,6 +37,7 @@ struct CollisionEvent : public Event<CollisionEvent> {
 
   Entity a, b;
 };
+
 
 struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionEvent> {
   CollisionEventProxy() : PythonEventProxy("on_collision") {}
@@ -65,12 +54,12 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
 
 
 BOOST_PYTHON_MODULE(entityx_python_test) {
-  py::class_<PythonPosition, shared_ptr<PythonPosition>>("Position", py::init<py::optional<float, float>>())
-    .def("assign_to", &PythonPosition::assign_to)
-    .def("get_component", &PythonPosition::get_component)
+  py::class_<Position, shared_ptr<Position>>("Position", py::init<py::optional<float, float>>())
+    .def("assign_to", &assign_to<Position>)
+    .def("get_component", &get_component<Position>)
     .staticmethod("get_component")
-    .def_readwrite("x", &PythonPosition::x)
-    .def_readwrite("y", &PythonPosition::y);
+    .def_readwrite("x", &Position::x)
+    .def_readwrite("y", &Position::y);
   py::class_<CollisionEvent>("Collision", py::init<Entity, Entity>())
     .def_readonly("a", &CollisionEvent::a)
     .def_readonly("b", &CollisionEvent::b);
@@ -143,7 +132,7 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
   try {
     system->configure(ev);
     Entity e = em.create();
-    e.assign<PythonPosition>(2, 3);
+    e.assign<Position>(2, 3);
     auto script = e.assign<PythonEntityComponent>("entityx.tests.assign_test", "AssignTest");
     ASSERT_TRUE(e.component<Position>());
     ASSERT_TRUE(script->object);
