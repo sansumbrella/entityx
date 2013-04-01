@@ -32,6 +32,13 @@ struct Position : public Component<Position> {
 };
 
 
+struct Direction : public Component<Direction> {
+  Direction(float x = 0.0, float y = 0.0) : x(x), y(y) {}
+
+  float x, y;
+};
+
+
 struct CollisionEvent : public Event<CollisionEvent> {
   CollisionEvent(Entity a, Entity b) : a(a), b(b) {}
 
@@ -44,7 +51,7 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
 
   void receive(const CollisionEvent &event) {
     for (auto entity : entities) {
-      auto py_entity = entity.template component<PythonEntityComponent>();
+      auto py_entity = entity.template component<PythonComponent>();
       if (entity == event.a || entity == event.b) {
         py_entity->object.attr("on_collision")(event);
       }
@@ -60,6 +67,12 @@ BOOST_PYTHON_MODULE(entityx_python_test) {
     .staticmethod("get_component")
     .def_readwrite("x", &Position::x)
     .def_readwrite("y", &Position::y);
+  py::class_<Direction, shared_ptr<Direction>>("Direction", py::init<py::optional<float, float>>())
+    .def("assign_to", &assign_to<Direction>)
+    .def("get_component", &get_component<Direction>)
+    .staticmethod("get_component")
+    .def_readwrite("x", &Direction::x)
+    .def_readwrite("y", &Direction::y);
   py::class_<CollisionEvent>("Collision", py::init<Entity, Entity>())
     .def_readonly("a", &CollisionEvent::a)
     .def_readonly("b", &CollisionEvent::b);
@@ -95,7 +108,7 @@ TEST_F(PythonSystemTest, TestSystemUpdateCallsEntityUpdate) {
   try {
     system->configure(ev);
     Entity e = em.create();
-    auto script = e.assign<PythonEntityComponent>("entityx.tests.update_test", "UpdateTest");
+    auto script = e.assign<PythonComponent>("entityx.tests.update_test", "UpdateTest");
     ASSERT_FALSE(py::extract<bool>(script->object.attr("updated")));
     system->update(em, ev, 0.1);
     ASSERT_TRUE(py::extract<bool>(script->object.attr("updated")));
@@ -111,8 +124,8 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
   try {
     system->configure(ev);
     Entity e = em.create();
-    auto script = e.assign<PythonEntityComponent>("entityx.tests.assign_test", "AssignTest");
-    ASSERT_FALSE(e.component<Position>());
+    auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
+    ASSERT_TRUE(e.component<Position>());
     ASSERT_TRUE(script->object);
     ASSERT_TRUE(script->object.attr("test_assign_create"));
     script->object.attr("test_assign_create")();
@@ -133,7 +146,7 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
     system->configure(ev);
     Entity e = em.create();
     e.assign<Position>(2, 3);
-    auto script = e.assign<PythonEntityComponent>("entityx.tests.assign_test", "AssignTest");
+    auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
     ASSERT_TRUE(e.component<Position>());
     ASSERT_TRUE(script->object);
     ASSERT_TRUE(script->object.attr("test_assign_existing"));
@@ -154,7 +167,7 @@ TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
   try {
     system->configure(ev);
     Entity e = em.create();
-    auto script = e.assign<PythonEntityComponent>("entityx.tests.constructor_test", "ConstructorTest", 4.0, 5.0);
+    auto script = e.assign<PythonComponent>("entityx.tests.constructor_test", "ConstructorTest", 4.0, 5.0);
     auto position = e.component<Position>();
     ASSERT_TRUE(position);
     ASSERT_EQ(position->x, 4.0);
@@ -173,8 +186,8 @@ TEST_F(PythonSystemTest, TestEventDelivery) {
     Entity f = em.create();
     Entity e = em.create();
     Entity g = em.create();
-    auto scripte = e.assign<PythonEntityComponent>("entityx.tests.event_test", "EventTest");
-    auto scriptf = f.assign<PythonEntityComponent>("entityx.tests.event_test", "EventTest");
+    auto scripte = e.assign<PythonComponent>("entityx.tests.event_test", "EventTest");
+    auto scriptf = f.assign<PythonComponent>("entityx.tests.event_test", "EventTest");
     ASSERT_FALSE(scripte->object.attr("collided"));
     ASSERT_FALSE(scriptf->object.attr("collided"));
     ev.emit<CollisionEvent>(f, g);
@@ -183,6 +196,23 @@ TEST_F(PythonSystemTest, TestEventDelivery) {
     ev.emit<CollisionEvent>(e, f);
     ASSERT_TRUE(scriptf->object.attr("collided"));
     ASSERT_TRUE(scripte->object.attr("collided"));
+  } catch (...) {
+    PyErr_Print();
+    PyErr_Clear();
+    throw;
+  }
+}
+
+
+
+
+TEST_F(PythonSystemTest, TestDeepEntitySubclass) {
+  try {
+    system->configure(ev);
+    Entity e = em.create();
+    auto script = e.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest");
+    ASSERT_TRUE(script->object.attr("test_deep_subclass"));
+    script->object.attr("test_deep_subclass")();
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();

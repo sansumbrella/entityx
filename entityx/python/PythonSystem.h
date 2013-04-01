@@ -23,10 +23,10 @@ namespace entityx {
 namespace python {
 
 
-class PythonEntityComponent : public entityx::Component<PythonEntityComponent> {
+class PythonComponent : public entityx::Component<PythonComponent> {
 public:
   template <typename ...Args>
-  PythonEntityComponent(const std::string &module, const std::string &cls, Args ... args) : module(module), cls(cls) {
+  PythonComponent(const std::string &module, const std::string &cls, Args ... args) : module(module), cls(cls) {
     unpack_args(args...);
   }
 
@@ -104,7 +104,7 @@ public:
 
   void receive(const Event &event) {
     for (auto entity : entities) {
-      auto py_entity = entity.template component<PythonEntityComponent>();
+      auto py_entity = entity.template component<PythonComponent>();
       py_entity->object.attr(handler_name.c_str())(event);
     }
   }
@@ -138,7 +138,7 @@ public:
   }
 
   void receive(const EntityDestroyedEvent &event);
-  void receive(const ComponentAddedEvent<PythonEntityComponent> &event);
+  void receive(const ComponentAddedEvent<PythonComponent> &event);
 private:
   void initialize();
 

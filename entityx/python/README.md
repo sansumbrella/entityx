@@ -4,7 +4,7 @@ This system adds the ability to extend entity logic with Python scripts. The goa
 
 ## Concepts
 
-- Python scripts are attached to entities with `PythonEntityComponent`.
+- Python scripts are attached to entities with `PythonComponent`.
 - Events are proxied directly to Python entities via `PythonEventProxy` objects.
 - `PythonSystem` manages scripted entity lifecycle and event delivery.
 
@@ -18,7 +18,7 @@ To add scripting support to your system, something like the following steps shou
 4. Add classes to the package, inheriting from `entityx.Entity` and using the `entityx.Component` descriptor to assign components.
 5. Create a `PythonSystem`, passing in the list of paths to add to Python's import search path.
 6. Optionally attach any event proxies.
-7. Create an entity and associate it with a Python script by assigning `PythonEntityComponent`, passing it the package name, class name, and any constructor arguments.
+7. Create an entity and associate it with a Python script by assigning `PythonComponent`, passing it the package name, class name, and any constructor arguments.
 
 ## Interfacing with Python
 
@@ -90,7 +90,7 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
     // "entities" is a protected data member, populated by
     // PythonSystem, with Python entities that pass can_send().
     for (auto entity : entities) {
-      auto py_entity = entity.template component<PythonEntityComponent>();
+      auto py_entity = entity.template component<PythonComponent>();
       if (entity == event.a || entity == event.b) {
         py_entity->object.attr(handler_name.c_str())(event);
       }

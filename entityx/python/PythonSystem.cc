@@ -93,7 +93,7 @@ void PythonSystem::initialize() {
 
 void PythonSystem::configure(EventManager &events) {
   events.subscribe<EntityDestroyedEvent>(*this);
-  events.subscribe<ComponentAddedEvent<PythonEntityComponent>>(*this);
+  events.subscribe<ComponentAddedEvent<PythonComponent>>(*this);
 
   try {
     py::object main_module = py::import("__main__");
@@ -117,8 +117,8 @@ void PythonSystem::configure(EventManager &events) {
 }
 
 void PythonSystem::update(EntityManager &entities, EventManager &events, double dt) {
-  for (auto entity : entities.entities_with_components<PythonEntityComponent>()) {
-    shared_ptr<PythonEntityComponent> python = entity.component<PythonEntityComponent>();
+  for (auto entity : entities.entities_with_components<PythonComponent>()) {
+    shared_ptr<PythonComponent> python = entity.component<PythonComponent>();
 
     try {
       python->object.attr("update")(dt);
@@ -144,7 +144,7 @@ void PythonSystem::receive(const EntityDestroyedEvent &event) {
   }
 }
 
-void PythonSystem::receive(const ComponentAddedEvent<PythonEntityComponent> &event) {
+void PythonSystem::receive(const ComponentAddedEvent<PythonComponent> &event) {
   py::object module = py::import(event.component->module.c_str());
   py::object cls = module.attr(event.component->cls.c_str());
   if (py::len(event.component->args) == 0) {
