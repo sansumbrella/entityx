@@ -23,8 +23,18 @@ namespace entityx {
 namespace python {
 
 
+/**
+ * An EntityX component that represents a Python script.
+ */
 class PythonComponent : public entityx::Component<PythonComponent> {
 public:
+  /**
+   * Create a new PythonComponent from a Python class.
+   *
+   * @param module The Python module where the Entity subclass resides.
+   * @param cls The Class within the module.
+   * @param args The *args to pass to the Python constructor.
+   */
   template <typename ...Args>
   PythonComponent(const std::string &module, const std::string &cls, Args ... args) : module(module), cls(cls) {
     unpack_args(args...);
@@ -45,15 +55,54 @@ private:
 };
 
 
+class PythonSystem;
+
+
+/**
+ * Proxies C++ EntityX events to Python entities.
+ */
 class PythonEventProxy {
 public:
+  friend class PythonSystem;
+
+  /**
+   * Construct a new event proxy.
+   *
+   * @param handler_name The default implementation of can_send() tests for
+   *     the existence of this attribute on an Entity.
+   */
   PythonEventProxy(const std::string &handler_name) : handler_name(handler_name) {}
   virtual ~PythonEventProxy() {}
 
+  /**
+   * Return true if this event can be sent to the provided Python entity.
+   *
+   * @param  object The Python entity to test for event delivery.
+   */
+  virtual bool can_send(const boost::python::object &object) const {
+    return PyObject_HasAttrString(object.ptr(), handler_name.c_str());
+  }
+
+protected:
+  std::list<Entity> entities;
+  const std::string handler_name;
+
+private:
+  /**
+   * Add an Entity receiver to this proxy. This is called automatically by PythonSystem.
+   *
+   * @param entity The entity that will receive events.
+   */
   void add_receiver(Entity entity) {
     entities.push_back(entity);
   }
 
+  /**
+   * Delete an Entity receiver. This is called automatically by PythonSystem
+   * after testing with can_send().
+   *
+   * @param entity The entity that was receiving events.
+   */
   void delete_receiver(Entity entity) {
     for (auto i = entities.begin(); i != entities.end(); ++i) {
       if (entity == *i) {
@@ -62,23 +111,15 @@ public:
       }
     }
   }
-
-  virtual bool can_send(const boost::python::object &object) const {
-    return PyObject_HasAttrString(object.ptr(), handler_name.c_str());
-  }
-
-protected:
-  std::list<Entity> entities;
-  const std::string handler_name;
 };
 
 
 /**
  * A helper function for class_ to assign a component to an entity.
  */
-template <typename C>
-void assign_to(boost::shared_ptr<C> c, Entity &entity) {
-  entity.assign<C>(c);
+template <typename Component>
+void assign_to(boost::shared_ptr<Component> component, Entity &entity) {
+  entity.assign<Component>(component);
 }
 
 
@@ -86,9 +127,9 @@ void assign_to(boost::shared_ptr<C> c, Entity &entity) {
  * A helper function for retrieving an existing component associated with an
  * entity.
  */
-template <typename C>
-boost::shared_ptr<C> get_component(Entity &entity) {
-  return entity.component<C>();
+template <typename Component>
+boost::shared_ptr<Component> get_component(Entity &entity) {
+  return entity.component<Component>();
 }
 
 
@@ -115,7 +156,7 @@ class PythonSystem : public entityx::System<PythonSystem>, public entityx::Recei
 public:
   typedef boost::function<void (const std::string &)> LoggerFunction;
 
-  PythonSystem(const std::vector<std::string> &python_paths);
+  PythonSystem(EntityManager &entity_manager, const std::vector<std::string> &python_paths);
   virtual ~PythonSystem();
 
   virtual void configure(EventManager &events) override;
@@ -140,8 +181,9 @@ public:
   void receive(const EntityDestroyedEvent &event);
   void receive(const ComponentAddedEvent<PythonComponent> &event);
 private:
-  void initialize();
+  void initialize_python_module();
 
+  EntityManager &entity_manager_;
   const std::vector<std::string> python_paths_;
   LoggerFunction stdout_, stderr_;
   static bool initialized_;

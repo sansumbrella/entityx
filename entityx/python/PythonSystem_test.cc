@@ -9,6 +9,7 @@
  */
 
 #include <Python/Python.h>
+#include <cassert>
 #include <vector>
 #include <string>
 #include <gtest/gtest.h>
@@ -82,15 +83,15 @@ BOOST_PYTHON_MODULE(entityx_python_test) {
 class PythonSystemTest : public ::testing::Test {
 protected:
   PythonSystemTest() : em(ev) {
-    CHECK(PyImport_AppendInittab("entityx_python_test", initentityx_python_test) != -1)
-      << "Failed to initialize entityx_python_test Python module";
+    assert(PyImport_AppendInittab("entityx_python_test", initentityx_python_test) != -1 && "Failed to initialize entityx_python_test Python module");
   }
 
   void SetUp() {
     vector<string> paths;
     paths.push_back(ENTITYX_PYTHON_TEST_DATA);
-    system = make_shared<PythonSystem>(paths);
+    system = make_shared<PythonSystem>(em, paths);
     system->add_event_proxy<CollisionEvent>(ev, boost::make_shared<CollisionEventProxy>());
+    system->configure(ev);
   }
 
   void TearDown() {
@@ -106,7 +107,6 @@ protected:
 
 TEST_F(PythonSystemTest, TestSystemUpdateCallsEntityUpdate) {
   try {
-    system->configure(ev);
     Entity e = em.create();
     auto script = e.assign<PythonComponent>("entityx.tests.update_test", "UpdateTest");
     ASSERT_FALSE(py::extract<bool>(script->object.attr("updated")));
@@ -122,7 +122,6 @@ TEST_F(PythonSystemTest, TestSystemUpdateCallsEntityUpdate) {
 
 TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
   try {
-    system->configure(ev);
     Entity e = em.create();
     auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
     ASSERT_TRUE(e.component<Position>());
@@ -143,7 +142,6 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
 
 TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
   try {
-    system->configure(ev);
     Entity e = em.create();
     e.assign<Position>(2, 3);
     auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
@@ -165,7 +163,6 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
 
 TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
   try {
-    system->configure(ev);
     Entity e = em.create();
     auto script = e.assign<PythonComponent>("entityx.tests.constructor_test", "ConstructorTest", 4.0, 5.0);
     auto position = e.component<Position>();
@@ -182,7 +179,6 @@ TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
 
 TEST_F(PythonSystemTest, TestEventDelivery) {
   try {
-    system->configure(ev);
     Entity f = em.create();
     Entity e = em.create();
     Entity g = em.create();
@@ -208,7 +204,6 @@ TEST_F(PythonSystemTest, TestEventDelivery) {
 
 TEST_F(PythonSystemTest, TestDeepEntitySubclass) {
   try {
-    system->configure(ev);
     Entity e = em.create();
     auto script = e.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest");
     ASSERT_TRUE(script->object.attr("test_deep_subclass"));

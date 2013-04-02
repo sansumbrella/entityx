@@ -8,8 +8,9 @@
  * Author: Alec Thomas <alec@swapoff.org>
  */
 
+#include <cassert>
 #include <string>
-#include <glog/logging.h>
+#include <iostream>
 #include <Python/Python.h>
 #include "entityx/python/PythonSystem.h"
 
@@ -22,6 +23,23 @@ namespace python {
 
 
 static const py::object None;
+
+
+/**
+ * A Component exposed to Python that can create new entities.
+ */
+class PythonEntityBuilderComponent : public entityx::Component<PythonEntityBuilderComponent> {
+public:
+  PythonEntityBuilderComponent(EntityManager &entity_manager) : entity_manager_(entity_manager) {}
+
+  template <typename ... Args>
+  void build(py::object cls, Args ... args) {
+    Entity entity = entity_manager_.create();
+  }
+
+private:
+  EntityManager &entity_manager_;
+};
 
 
 class PythonEntityXLogger {
@@ -53,25 +71,27 @@ BOOST_PYTHON_MODULE(_entityx) {
     .def_readonly("_entity", &PythonEntity::_entity)
     .def("update", &PythonEntity::update);
   py::class_<Entity>("_RawEntity", py::no_init);
+  py::class_<EntityManager, boost::noncopyable>("_EntityManager")
+    .def("create", &EntityManager::create);
 }
 
 
 static void log_to_stderr(const std::string &text) {
-  LOG(WARNING) << "python: " << text;
+  cerr << "python: " << text << endl;
 }
 
 static void log_to_stdout(const std::string &text) {
-  LOG(INFO) << "python: " << text;
+  cout << "python: " << text << endl;
 }
 
 // PythonSystem below here
 
 bool PythonSystem::initialized_ = false;
 
-PythonSystem::PythonSystem(const std::vector<std::string> &python_paths)
-    : python_paths_(python_paths), stdout_(log_to_stdout), stderr_(log_to_stderr) {
+PythonSystem::PythonSystem(EntityManager &entity_manager, const std::vector<std::string> &python_paths)
+    : entity_manager_(entity_manager), python_paths_(python_paths), stdout_(log_to_stdout), stderr_(log_to_stderr) {
   if (!initialized_) {
-    initialize();
+    initialize_python_module();
   }
   Py_Initialize();
   if (!initialized_) {
@@ -86,14 +106,13 @@ PythonSystem::~PythonSystem() {
   // Py_Finalize();
 }
 
-void PythonSystem::initialize() {
-  CHECK(PyImport_AppendInittab("_entityx", init_entityx) != -1)
-    << "Failed to initialize _entityx Python module";
+void PythonSystem::initialize_python_module() {
+  assert(PyImport_AppendInittab("_entityx", init_entityx) != -1 && "Failed to initialize _entityx Python module");
 }
 
-void PythonSystem::configure(EventManager &events) {
-  events.subscribe<EntityDestroyedEvent>(*this);
-  events.subscribe<ComponentAddedEvent<PythonComponent>>(*this);
+void PythonSystem::configure(EventManager &event_manager) {
+  event_manager.subscribe<EntityDestroyedEvent>(*this);
+  event_manager.subscribe<ComponentAddedEvent<PythonComponent>>(*this);
 
   try {
     py::object main_module = py::import("__main__");
@@ -109,6 +128,10 @@ void PythonSystem::configure(EventManager &events) {
       py::str dir = path.c_str();
       sys.attr("path").attr("insert")(0, dir);
     }
+
+    py::object entityx = py::import("entityx");
+    entityx.attr("entity_manager") = &entity_manager_;
+    entityx.attr("event_manager") = &event_manager;
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
