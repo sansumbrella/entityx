@@ -115,7 +115,7 @@ TEST_F(PythonSystemTest, TestSystemUpdateCallsEntityUpdate) {
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
-    throw;
+    ASSERT_FALSE(true) << "Python exception.";
   }
 }
 
@@ -136,7 +136,7 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
-    throw;
+    ASSERT_FALSE(true) << "Python exception.";
   }
 }
 
@@ -158,7 +158,7 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
-    throw;
+    ASSERT_FALSE(true) << "Python exception.";
   }
 }
 
@@ -175,7 +175,7 @@ TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
-    throw;
+    ASSERT_FALSE(true) << "Python exception.";
   }
 }
 
@@ -199,7 +199,7 @@ TEST_F(PythonSystemTest, TestEventDelivery) {
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
-    throw;
+    ASSERT_FALSE(true) << "Python exception.";
   }
 }
 
@@ -213,9 +213,14 @@ TEST_F(PythonSystemTest, TestDeepEntitySubclass) {
     auto script = e.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest");
     ASSERT_TRUE(script->object.attr("test_deep_subclass"));
     script->object.attr("test_deep_subclass")();
+
+    Entity e2 = em.create();
+    auto script2 = e2.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest2");
+    ASSERT_TRUE(script2->object.attr("test_deeper_subclass"));
+    script2->object.attr("test_deeper_subclass")();
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
-    throw;
+    ASSERT_FALSE(true) << "Python exception.";
   }
 }

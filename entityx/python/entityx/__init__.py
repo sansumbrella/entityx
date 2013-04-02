@@ -9,7 +9,7 @@ They allow you to declare your entities and components in an intuitive way:
     class Player(Entity):
         position = Component(Position)
         direction = Component(Direction)
-        sprite = Component(Sprite, 'player.png')
+        sprite = Component(Sprite, 'player.png')  # Sprite component with constructor argument
 
         def update(self, dt):
             self.position.x += self.direction.x * dt
