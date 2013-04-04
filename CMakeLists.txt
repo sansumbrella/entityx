@@ -8,6 +8,7 @@ set(ENTITYX_MAX_COMPONENTS 64 CACHE STRING "Set the maximum number of components
 set(ENTITYX_USE_CPP11_STDLIB false CACHE BOOL "Use the C++11 stdlib (-stdlib=libc++).")
 # Check for which shared_ptr implementation to use.
 set(ENTITYX_USE_STD_SHARED_PTR false CACHE BOOL "Use std::shared_ptr<T> rather than boost::shared_ptr<T>?")
+set(ENTITYX_BUILD_SHARED true CACHE BOOL "Build shared libraries?")
 
 include(${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
 include(CheckCXXSourceCompiles)
@@ -86,7 +87,8 @@ include(CheckCXX11SharedPtr.cmake)
 set(sources entityx/tags/TagsComponent.cc entityx/System.cc entityx/Event.cc entityx/Entity.cc entityx/Manager.cc)
 add_library(entityx STATIC ${sources})
 
-if (BUILD_SHARED)
+if (ENTITYX_BUILD_SHARED)
+    message("-- Building shared libraries (-DENTITYX_BUILD_SHARED=0 to only build static librarires)")
     add_library(entityx_shared SHARED ${sources})
     target_link_libraries(
         entityx_shared
@@ -94,29 +96,29 @@ if (BUILD_SHARED)
         )
     set_target_properties(entityx_shared PROPERTIES OUTPUT_NAME entityx)
     list(APPEND install_libs entityx_shared)
-endif (BUILD_SHARED)
+endif (ENTITYX_BUILD_SHARED)
 
-include_directories(
-    ${Boost_INCLUDE_DIR}
-    ${GTest_INCLUDE_DIR}
-)
+include_directories(${Boost_INCLUDE_DIR})
 
 if (Boost_PYTHON_LIBRARY)
     message("-- Found boost::python, building entityx/python")
+    find_package(PythonLibs REQUIRED)
+    include_directories(${PYTHON_INCLUDE_DIRS})
+    set(ENTITYX_HAVE_BOOST_PYTHON 1)
     set(python_sources entityx/python/PythonSystem.cc)
     add_library(entityx_python STATIC ${python_sources})
     list(APPEND install_libs entityx_python)
-    if (BUILD_SHARED)
+    if (ENTITYX_BUILD_SHARED)
         add_library(entityx_python_shared SHARED ${python_sources})
         target_link_libraries(
             entityx_python_shared
             entityx_shared
             ${Boost_PYTHON_LIBRARY}
-            Python
+            ${PYTHON_LIBRARIES}
         )
         set_target_properties(entityx_python_shared PROPERTIES OUTPUT_NAME entityx_python)
         list(APPEND install_libs entityx_python_shared)
-    endif (BUILD_SHARED)
+    endif (ENTITYX_BUILD_SHARED)
 endif (Boost_PYTHON_LIBRARY)
 
 if (ENTITYX_BUILD_TESTING)
@@ -140,6 +142,12 @@ if (ENTITYX_BUILD_TESTING)
         create_test(python_test entityx/python/PythonSystem_test.cc entityx_python ${Boost_PYTHON_LIBRARY} Python)
     endif (Boost_PYTHON_LIBRARY)
 endif (ENTITYX_BUILD_TESTING)
+
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/entityx/config.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/entityx/config.h
+)
 
 install(
     DIRECTORY "entityx"

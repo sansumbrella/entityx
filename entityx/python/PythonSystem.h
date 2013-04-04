@@ -10,14 +10,44 @@
 
 #pragma once
 
+ #include "entityx/config.h"
+
+// boost::python smart pointer adapter for std::shared_ptr<T>
+#if (ENTITYX_HAVE_STD_SHARED_PTR && ENTITYX_USE_STD_SHARED_PTR)
+
+#include <boost/python.hpp>
+#include <memory>
+
+namespace std {
+
+// This may or may not work... it definitely does not work on OSX.
+template <class T> inline T * get_pointer(const std::shared_ptr<T> &p) {
+  return p.get();
+}
+
+}
+
+namespace boost {
+namespace python {
+
+template <typename T> struct pointee<std::shared_ptr<T> > {
+  typedef T type;
+};
+
+}
+}
+
+#endif
+
 #include <vector>
 #include <string>
-#include <boost/function.hpp>
 #include <boost/python.hpp>
+#include <boost/function.hpp>
 #include <Python/Python.h>
 #include "entityx/System.h"
 #include "entityx/Entity.h"
 #include "entityx/Event.h"
+
 
 namespace entityx {
 namespace python {
@@ -118,7 +148,7 @@ private:
  * A helper function for class_ to assign a component to an entity.
  */
 template <typename Component>
-void assign_to(boost::shared_ptr<Component> component, Entity &entity) {
+void assign_to(entityx::shared_ptr<Component> component, Entity &entity) {
   entity.assign<Component>(component);
 }
 
@@ -128,7 +158,7 @@ void assign_to(boost::shared_ptr<Component> component, Entity &entity) {
  * entity.
  */
 template <typename Component>
-boost::shared_ptr<Component> get_component(Entity &entity) {
+entityx::shared_ptr<Component> get_component(Entity &entity) {
   return entity.component<Component>();
 }
 
@@ -156,26 +186,26 @@ class PythonSystem : public entityx::System<PythonSystem>, public entityx::Recei
 public:
   typedef boost::function<void (const std::string &)> LoggerFunction;
 
-  PythonSystem(EntityManager &entity_manager, const std::vector<std::string> &python_paths);
+  PythonSystem(entityx::shared_ptr<EntityManager> entity_manager, const std::vector<std::string> &python_paths);
   virtual ~PythonSystem();
 
-  virtual void configure(EventManager &events) override;
-  virtual void update(EntityManager &entities, EventManager &events, double dt) override;
+  virtual void configure(entityx::shared_ptr<EventManager> event_manager) override;
+  virtual void update(entityx::shared_ptr<EntityManager> entities, entityx::shared_ptr<EventManager> event_manager, double dt) override;
   void shutdown();
 
   void log_to(LoggerFunction stdout, LoggerFunction stderr);
 
   template <typename Event>
-  void add_event_proxy(EventManager &event_manager, const std::string &handler_name) {
-    auto proxy = boost::make_shared<BroadcastPythonEventProxy<Event>>(handler_name);
-    event_manager.subscribe<Event>(*proxy);
-    event_proxies_.push_back(boost::static_pointer_cast<PythonEventProxy>(proxy));
+  void add_event_proxy(entityx::shared_ptr<EventManager> event_manager, const std::string &handler_name) {
+    auto proxy = entityx::make_shared<BroadcastPythonEventProxy<Event>>(handler_name);
+    event_manager->subscribe<Event>(*proxy);
+    event_proxies_.push_back(entityx::static_pointer_cast<PythonEventProxy>(proxy));
   }
 
   template <typename Event, typename Proxy>
-  void add_event_proxy(EventManager &event_manager, boost::shared_ptr<Proxy> proxy) {
-    event_manager.subscribe<Event>(*proxy);
-    event_proxies_.push_back(boost::static_pointer_cast<PythonEventProxy>(proxy));
+  void add_event_proxy(entityx::shared_ptr<EventManager> event_manager, entityx::shared_ptr<Proxy> proxy) {
+    event_manager->subscribe<Event>(*proxy);
+    event_proxies_.push_back(entityx::static_pointer_cast<PythonEventProxy>(proxy));
   }
 
   void receive(const EntityDestroyedEvent &event);
@@ -183,11 +213,11 @@ public:
 private:
   void initialize_python_module();
 
-  EntityManager &entity_manager_;
+  entityx::shared_ptr<EntityManager> entity_manager_;
   const std::vector<std::string> python_paths_;
   LoggerFunction stdout_, stderr_;
   static bool initialized_;
-  std::vector<boost::shared_ptr<PythonEventProxy>> event_proxies_;
+  std::vector<entityx::shared_ptr<PythonEventProxy>> event_proxies_;
 };
 
 }

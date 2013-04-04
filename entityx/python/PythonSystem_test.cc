@@ -13,7 +13,6 @@
 #include <vector>
 #include <string>
 #include <gtest/gtest.h>
-#include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
 #include "entityx/Entity.h"
 #include "entityx/Event.h"
@@ -82,15 +81,19 @@ BOOST_PYTHON_MODULE(entityx_python_test) {
 
 class PythonSystemTest : public ::testing::Test {
 protected:
-  PythonSystemTest() : em(ev) {
+  PythonSystemTest() : ev(EventManager::make()), em(EntityManager::make(ev)) {
     assert(PyImport_AppendInittab("entityx_python_test", initentityx_python_test) != -1 && "Failed to initialize entityx_python_test Python module");
   }
 
   void SetUp() {
     vector<string> paths;
     paths.push_back(ENTITYX_PYTHON_TEST_DATA);
-    system = make_shared<PythonSystem>(em, paths);
-    system->add_event_proxy<CollisionEvent>(ev, boost::make_shared<CollisionEventProxy>());
+    system = entityx::make_shared<PythonSystem>(em, paths);
+    if (!initialized) {
+      initentityx_python_test();
+      initialized = true;
+    }
+    system->add_event_proxy<CollisionEvent>(ev, entityx::make_shared<CollisionEventProxy>());
     system->configure(ev);
   }
 
@@ -100,14 +103,17 @@ protected:
   }
 
   shared_ptr<PythonSystem> system;
-  EventManager ev;
-  EntityManager em;
+  entityx::shared_ptr<EventManager> ev;
+  entityx::shared_ptr<EntityManager> em;
+  static bool initialized;
 };
+
+bool PythonSystemTest::initialized = false;
 
 
 TEST_F(PythonSystemTest, TestSystemUpdateCallsEntityUpdate) {
   try {
-    Entity e = em.create();
+    Entity e = em->create();
     auto script = e.assign<PythonComponent>("entityx.tests.update_test", "UpdateTest");
     ASSERT_FALSE(py::extract<bool>(script->object.attr("updated")));
     system->update(em, ev, 0.1);
@@ -122,7 +128,7 @@ TEST_F(PythonSystemTest, TestSystemUpdateCallsEntityUpdate) {
 
 TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
   try {
-    Entity e = em.create();
+    Entity e = em->create();
     auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
     ASSERT_TRUE(e.component<Position>());
     ASSERT_TRUE(script->object);
@@ -142,7 +148,7 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
 
 TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
   try {
-    Entity e = em.create();
+    Entity e = em->create();
     e.assign<Position>(2, 3);
     auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
     ASSERT_TRUE(e.component<Position>());
@@ -163,7 +169,7 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
 
 TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
   try {
-    Entity e = em.create();
+    Entity e = em->create();
     auto script = e.assign<PythonComponent>("entityx.tests.constructor_test", "ConstructorTest", 4.0, 5.0);
     auto position = e.component<Position>();
     ASSERT_TRUE(position);
@@ -179,17 +185,17 @@ TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
 
 TEST_F(PythonSystemTest, TestEventDelivery) {
   try {
-    Entity f = em.create();
-    Entity e = em.create();
-    Entity g = em.create();
+    Entity f = em->create();
+    Entity e = em->create();
+    Entity g = em->create();
     auto scripte = e.assign<PythonComponent>("entityx.tests.event_test", "EventTest");
     auto scriptf = f.assign<PythonComponent>("entityx.tests.event_test", "EventTest");
     ASSERT_FALSE(scripte->object.attr("collided"));
     ASSERT_FALSE(scriptf->object.attr("collided"));
-    ev.emit<CollisionEvent>(f, g);
+    ev->emit<CollisionEvent>(f, g);
     ASSERT_TRUE(scriptf->object.attr("collided"));
     ASSERT_FALSE(scripte->object.attr("collided"));
-    ev.emit<CollisionEvent>(e, f);
+    ev->emit<CollisionEvent>(e, f);
     ASSERT_TRUE(scriptf->object.attr("collided"));
     ASSERT_TRUE(scripte->object.attr("collided"));
   } catch (...) {
@@ -204,12 +210,12 @@ TEST_F(PythonSystemTest, TestEventDelivery) {
 
 TEST_F(PythonSystemTest, TestDeepEntitySubclass) {
   try {
-    Entity e = em.create();
+    Entity e = em->create();
     auto script = e.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest");
     ASSERT_TRUE(script->object.attr("test_deep_subclass"));
     script->object.attr("test_deep_subclass")();
 
-    Entity e2 = em.create();
+    Entity e2 = em->create();
     auto script2 = e2.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest2");
     ASSERT_TRUE(script2->object.attr("test_deeper_subclass"));
     script2->object.attr("test_deeper_subclass")();

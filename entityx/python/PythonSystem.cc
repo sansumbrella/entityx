@@ -30,15 +30,15 @@ static const py::object None;
  */
 class PythonEntityBuilderComponent : public entityx::Component<PythonEntityBuilderComponent> {
 public:
-  PythonEntityBuilderComponent(EntityManager &entity_manager) : entity_manager_(entity_manager) {}
+  PythonEntityBuilderComponent(entityx::shared_ptr<EntityManager> entity_manager) : entity_manager_(entity_manager) {}
 
   template <typename ... Args>
   void build(py::object cls, Args ... args) {
-    Entity entity = entity_manager_.create();
+    Entity entity = entity_manager_->create();
   }
 
 private:
-  EntityManager &entity_manager_;
+  entityx::shared_ptr<EntityManager> entity_manager_;
 };
 
 
@@ -71,7 +71,7 @@ BOOST_PYTHON_MODULE(_entityx) {
     .def_readonly("_entity", &PythonEntity::_entity)
     .def("update", &PythonEntity::update);
   py::class_<Entity>("_RawEntity", py::no_init);
-  py::class_<EntityManager, boost::noncopyable>("_EntityManager")
+  py::class_<EntityManager, entityx::shared_ptr<EntityManager>, boost::noncopyable>("_EntityManager", py::no_init)
     .def("create", &EntityManager::create);
 }
 
@@ -88,7 +88,7 @@ static void log_to_stdout(const std::string &text) {
 
 bool PythonSystem::initialized_ = false;
 
-PythonSystem::PythonSystem(EntityManager &entity_manager, const std::vector<std::string> &python_paths)
+PythonSystem::PythonSystem(entityx::shared_ptr<EntityManager> entity_manager, const std::vector<std::string> &python_paths)
     : entity_manager_(entity_manager), python_paths_(python_paths), stdout_(log_to_stdout), stderr_(log_to_stderr) {
   if (!initialized_) {
     initialize_python_module();
@@ -110,9 +110,9 @@ void PythonSystem::initialize_python_module() {
   assert(PyImport_AppendInittab("_entityx", init_entityx) != -1 && "Failed to initialize _entityx Python module");
 }
 
-void PythonSystem::configure(EventManager &event_manager) {
-  event_manager.subscribe<EntityDestroyedEvent>(*this);
-  event_manager.subscribe<ComponentAddedEvent<PythonComponent>>(*this);
+void PythonSystem::configure(entityx::shared_ptr<EventManager> event_manager) {
+  event_manager->subscribe<EntityDestroyedEvent>(*this);
+  event_manager->subscribe<ComponentAddedEvent<PythonComponent>>(*this);
 
   try {
     py::object main_module = py::import("__main__");
@@ -130,8 +130,8 @@ void PythonSystem::configure(EventManager &event_manager) {
     }
 
     py::object entityx = py::import("entityx");
-    entityx.attr("entity_manager") = &entity_manager_;
-    entityx.attr("event_manager") = &event_manager;
+    entityx.attr("entity_manager") = boost::ref(entity_manager_);
+    // entityx.attr("event_manager") = boost::ref(event_manager);
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
@@ -139,8 +139,8 @@ void PythonSystem::configure(EventManager &event_manager) {
   }
 }
 
-void PythonSystem::update(EntityManager &entities, EventManager &events, double dt) {
-  for (auto entity : entities.entities_with_components<PythonComponent>()) {
+void PythonSystem::update(entityx::shared_ptr<EntityManager> entity_manager, entityx::shared_ptr<EventManager> event_manager, double dt) {
+  for (auto entity : entity_manager->entities_with_components<PythonComponent>()) {
     shared_ptr<PythonComponent> python = entity.component<PythonComponent>();
 
     try {

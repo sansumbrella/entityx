@@ -40,7 +40,7 @@ struct Position : public Component<Position> {
 };
 
 void export_position_to_python() {
-  py::class_<PythonPosition, shared_ptr<PythonPosition>>("Position", py::init<py::optional<float, float>>())
+  py::class_<PythonPosition, entityx::shared_ptr<PythonPosition>>("Position", py::init<py::optional<float, float>>())
     .def("assign_to", &entityx::python::assign_to<Position>)
     .def("get_component", &entityx::python::get_component<Position>)
     .staticmethod("get_component")
@@ -132,5 +132,5 @@ auto script_system = make_shared<PythonSystem>(paths);
 
 // Add any Event proxies.
 script_system->add_event_proxy<CollisionEvent>(
-    ev, boost::make_shared<CollisionEventProxy>());
+    ev, entityx::make_shared<CollisionEventProxy>());
 ```
