@@ -8,6 +8,8 @@
  * Author: Alec Thomas <alec@swapoff.org>
  */
 
+// http://docs.python.org/2/extending/extending.html
+#include <Python.h>
 #include <cassert>
 #include <string>
 #include <iostream>

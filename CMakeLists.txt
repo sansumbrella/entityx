@@ -139,7 +139,7 @@ if (ENTITYX_BUILD_TESTING)
     endif ()
     if (Boost_PYTHON_LIBRARY)
         add_definitions(-DENTITYX_PYTHON_TEST_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/entityx/python\")
-        create_test(python_test entityx/python/PythonSystem_test.cc entityx_python ${Boost_PYTHON_LIBRARY} Python)
+        create_test(python_test entityx/python/PythonSystem_test.cc entityx_python ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES})
     endif (Boost_PYTHON_LIBRARY)
 endif (ENTITYX_BUILD_TESTING)
 

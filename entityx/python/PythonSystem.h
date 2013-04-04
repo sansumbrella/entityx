@@ -10,7 +10,9 @@
 
 #pragma once
 
- #include "entityx/config.h"
+// http://docs.python.org/2/extending/extending.html
+#include <Python.h>
+#include "entityx/config.h"
 
 // boost::python smart pointer adapter for std::shared_ptr<T>
 #if (ENTITYX_HAVE_STD_SHARED_PTR && ENTITYX_USE_STD_SHARED_PTR)
@@ -43,7 +45,6 @@ template <typename T> struct pointee<std::shared_ptr<T> > {
 #include <string>
 #include <boost/python.hpp>
 #include <boost/function.hpp>
-#include <Python.h>
 #include "entityx/System.h"
 #include "entityx/Entity.h"
 #include "entityx/Event.h"

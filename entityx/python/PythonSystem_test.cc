@@ -8,6 +8,7 @@
  * Author: Alec Thomas <alec@swapoff.org>
  */
 
+// http://docs.python.org/2/extending/extending.html
 #include <Python.h>
 #include <cassert>
 #include <vector>
@@ -130,12 +131,12 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInPython) {
   try {
     Entity e = em->create();
     auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
-    ASSERT_TRUE(e.component<Position>());
+    ASSERT_TRUE(bool(e.component<Position>()));
     ASSERT_TRUE(script->object);
     ASSERT_TRUE(script->object.attr("test_assign_create"));
     script->object.attr("test_assign_create")();
     auto position = e.component<Position>();
-    ASSERT_TRUE(position);
+    ASSERT_TRUE(bool(position));
     ASSERT_EQ(position->x, 1.0);
     ASSERT_EQ(position->y, 2.0);
   } catch (...) {
@@ -151,12 +152,12 @@ TEST_F(PythonSystemTest, TestComponentAssignmentCreationInCpp) {
     Entity e = em->create();
     e.assign<Position>(2, 3);
     auto script = e.assign<PythonComponent>("entityx.tests.assign_test", "AssignTest");
-    ASSERT_TRUE(e.component<Position>());
+    ASSERT_TRUE(bool(e.component<Position>()));
     ASSERT_TRUE(script->object);
     ASSERT_TRUE(script->object.attr("test_assign_existing"));
     script->object.attr("test_assign_existing")();
     auto position = e.component<Position>();
-    ASSERT_TRUE(position);
+    ASSERT_TRUE(bool(position));
     ASSERT_EQ(position->x, 3.0);
     ASSERT_EQ(position->y, 4.0);
   } catch (...) {
@@ -172,7 +173,7 @@ TEST_F(PythonSystemTest, TestEntityConstructorArgs) {
     Entity e = em->create();
     auto script = e.assign<PythonComponent>("entityx.tests.constructor_test", "ConstructorTest", 4.0, 5.0);
     auto position = e.component<Position>();
-    ASSERT_TRUE(position);
+    ASSERT_TRUE(bool(position));
     ASSERT_EQ(position->x, 4.0);
     ASSERT_EQ(position->y, 5.0);
   } catch (...) {
