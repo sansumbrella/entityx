@@ -61,13 +61,13 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
 
 
 BOOST_PYTHON_MODULE(entityx_python_test) {
-  py::class_<Position, shared_ptr<Position>>("Position", py::init<py::optional<float, float>>())
+  py::class_<Position, entityx::shared_ptr<Position>>("Position", py::init<py::optional<float, float>>())
     .def("assign_to", &assign_to<Position>)
     .def("get_component", &get_component<Position>)
     .staticmethod("get_component")
     .def_readwrite("x", &Position::x)
     .def_readwrite("y", &Position::y);
-  py::class_<Direction, shared_ptr<Direction>>("Direction", py::init<py::optional<float, float>>())
+  py::class_<Direction, entityx::shared_ptr<Direction>>("Direction", py::init<py::optional<float, float>>())
     .def("assign_to", &assign_to<Direction>)
     .def("get_component", &get_component<Direction>)
     .staticmethod("get_component")
@@ -102,7 +102,7 @@ protected:
     system.reset();
   }
 
-  shared_ptr<PythonSystem> system;
+  entityx::shared_ptr<PythonSystem> system;
   entityx::shared_ptr<EventManager> ev;
   entityx::shared_ptr<EntityManager> em;
   static bool initialized;
