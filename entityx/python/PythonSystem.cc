@@ -11,7 +11,6 @@
 #include <cassert>
 #include <string>
 #include <iostream>
-#include <Python/Python.h>
 #include "entityx/python/PythonSystem.h"
 
 using namespace std;

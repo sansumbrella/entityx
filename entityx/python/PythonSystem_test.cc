@@ -8,7 +8,7 @@
  * Author: Alec Thomas <alec@swapoff.org>
  */
 
-#include <Python/Python.h>
+#include <Python.h>
 #include <cassert>
 #include <vector>
 #include <string>

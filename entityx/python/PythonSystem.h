@@ -43,7 +43,7 @@ template <typename T> struct pointee<std::shared_ptr<T> > {
 #include <string>
 #include <boost/python.hpp>
 #include <boost/function.hpp>
-#include <Python/Python.h>
+#include <Python.h>
 #include "entityx/System.h"
 #include "entityx/Entity.h"
 #include "entityx/Event.h"
