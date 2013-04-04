@@ -52,7 +52,7 @@ struct CollisionEventProxy : public PythonEventProxy, public Receiver<CollisionE
 
   void receive(const CollisionEvent &event) {
     for (auto entity : entities) {
-      auto py_entity = entity.template component<PythonComponent>();
+      auto py_entity = entity.component<PythonComponent>();
       if (entity == event.a || entity == event.b) {
         py_entity->object.attr("on_collision")(event);
       }
