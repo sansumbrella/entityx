@@ -41,7 +41,7 @@ macro(create_test TARGET_NAME SOURCE)
         entityx
         gtest
         gtest_main
-        ${Boost_LIBRARIES}
+        ${Boost_SYSTEM_LIBRARY}
         ${Boost_TIMER_LIBRARY}
         ${Boost_SIGNALS_LIBRARY}
         ${ARGN}
