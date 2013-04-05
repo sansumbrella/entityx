@@ -108,6 +108,13 @@ if (Boost_PYTHON_LIBRARY)
     set(python_sources entityx/python/PythonSystem.cc)
     add_library(entityx_python STATIC ${python_sources})
     list(APPEND install_libs entityx_python)
+    install(
+        FILES ${CMAKE_CURRENT_SOURCE_DIR}/entityx/python/entityx/__init__.py
+        DESTINATION share/entityx/python/
+        RENAME entityx.py
+    )
+    message("-- Installing entityx Python package to ${CMAKE_INSTALL_PREFIX}/share/entityx/python")
+    set(ENTITYX_INSTALLED_PYTHON_PACKAGE_DIR ${CMAKE_INSTALL_PREFIX}/share/entityx/python/)
     if (ENTITYX_BUILD_SHARED)
         add_library(entityx_python_shared SHARED ${python_sources})
         target_link_libraries(
@@ -130,6 +137,10 @@ if (ENTITYX_BUILD_TESTING)
     create_test(event_test entityx/Event_test.cc)
     create_test(system_test entityx/System_test.cc)
     create_test(tags_component_test entityx/tags/TagsComponent_test.cc)
+    if (Boost_PYTHON_LIBRARY)
+        add_definitions(-DENTITYX_PYTHON_TEST_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/entityx/python\")
+        create_test(python_test entityx/python/PythonSystem_test.cc entityx_python ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES})
+    endif (Boost_PYTHON_LIBRARY)
     if (ENTITYX_RUN_BENCHMARKS)
         message("-- Running benchmarks")
         add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=1 -DBOOST_NO_CXX11_NUMERIC_LIMITS=1)
@@ -137,10 +148,6 @@ if (ENTITYX_BUILD_TESTING)
     else ()
         message("-- Not running benchmarks (use -DENTITYX_RUN_BENCHMARKS=1 to enable)")
     endif ()
-    if (Boost_PYTHON_LIBRARY)
-        add_definitions(-DENTITYX_PYTHON_TEST_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/entityx/python\")
-        create_test(python_test entityx/python/PythonSystem_test.cc entityx_python ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES})
-    endif (Boost_PYTHON_LIBRARY)
 endif (ENTITYX_BUILD_TESTING)
 
 

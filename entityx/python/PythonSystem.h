@@ -71,6 +71,11 @@ public:
     unpack_args(args...);
   }
 
+  /**
+   * Create a new PythonComponent from an existing Python instance.
+   */
+  PythonComponent(boost::python::object object) : object(object) {}
+
   boost::python::object object;
   boost::python::list args;
   const std::string module, cls;
@@ -187,13 +192,39 @@ class PythonSystem : public entityx::System<PythonSystem>, public entityx::Recei
 public:
   typedef boost::function<void (const std::string &)> LoggerFunction;
 
-  PythonSystem(entityx::shared_ptr<EntityManager> entity_manager, const std::vector<std::string> &python_paths);
+  PythonSystem(entityx::shared_ptr<EntityManager> entity_manager);
   virtual ~PythonSystem();
+
+  /**
+   * Add system-installed entityx Python path to the interpreter.
+   */
+  void add_installed_library_path();
+
+  /**
+   * Add a Python path to the interpreter.
+   */
+  void add_path(const std::string &path);
+
+  /**
+   * Add a sequence of paths to the interpreter.
+   */
+  template <typename T>
+  void add_paths(const T &paths) {
+    for (auto path : paths) {
+      add_path(path);
+    }
+  }
+
+  const std::vector<std::string> &python_paths() const {
+    return python_paths_;
+  }
 
   virtual void configure(entityx::shared_ptr<EventManager> event_manager) override;
   virtual void update(entityx::shared_ptr<EntityManager> entities, entityx::shared_ptr<EventManager> event_manager, double dt) override;
-  void shutdown();
 
+  /**
+   * Set functions that writes to sys.stdout/sys.stderr will be passed to.
+   */
   void log_to(LoggerFunction stdout, LoggerFunction stderr);
 
   template <typename Event>
@@ -215,7 +246,7 @@ private:
   void initialize_python_module();
 
   entityx::shared_ptr<EntityManager> entity_manager_;
-  const std::vector<std::string> python_paths_;
+  std::vector<std::string> python_paths_;
   LoggerFunction stdout_, stderr_;
   static bool initialized_;
   std::vector<entityx::shared_ptr<PythonEventProxy>> event_proxies_;

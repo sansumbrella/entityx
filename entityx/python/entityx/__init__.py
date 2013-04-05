@@ -1,4 +1,4 @@
-from _entityx import _Entity
+import _entityx
 
 
 """These classes provide a convenience layer on top of the raw entityx::python
@@ -48,7 +48,7 @@ class Component(object):
         return component
 
 
-class EntityMetaClass(_Entity.__class__):
+class EntityMetaClass(_entityx.Entity.__class__):
     """Collect registered components from class attributes.
 
     This is done at class creation time to reduce entity creation overhead.
@@ -67,20 +67,36 @@ class EntityMetaClass(_Entity.__class__):
         return type.__new__(cls, name, bases, dct)
 
 
-class Entity(_Entity):
+class Entity(_entityx.Entity):
     """Base Entity class.
 
     Python Enitities differ in semantics from C++ components, in that they
-    contain logic.
+    contain logic, receive events, and so on.
     """
 
     __metaclass__ = EntityMetaClass
 
-    def __init__(self, entity):
-        super(Entity, self).__init__(entity)
-        # Retrieve or create all components associated with the entity.
+    def __new__(cls, *args, **kwargs):
+        entity = kwargs.pop('raw_entity', None)
+        self = _entityx.Entity.__new__(cls)
+        if entity is None:
+            entity = _entityx._entity_manager.create()
+            component = _entityx.PythonComponent(self)
+            component.assign_to(entity)
+        _entityx.Entity.__init__(self, entity)
         for k, v in self._components.items():
             setattr(self, k, v._build(self._entity))
+        return self
 
-    def update(self, dt):
-        """Update method called each game tick."""
+    def __init__(self):
+        """Default constructor."""
+
+    @classmethod
+    def _from_raw_entity(cls, raw_entity, *args, **kwargs):
+        """Create a new Entity from a raw entity.
+
+        This is called from C++.
+        """
+        self = Entity.__new__(cls, raw_entity=raw_entity)
+        cls.__init__(self, *args, **kwargs)
+        return self

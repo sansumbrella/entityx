@@ -89,7 +89,8 @@ protected:
   void SetUp() {
     vector<string> paths;
     paths.push_back(ENTITYX_PYTHON_TEST_DATA);
-    system = entityx::make_shared<PythonSystem>(em, paths);
+    system = entityx::make_shared<PythonSystem>(em);
+    system->add_paths(paths);
     if (!initialized) {
       initentityx_python_test();
       initialized = true;
@@ -99,7 +100,6 @@ protected:
   }
 
   void TearDown() {
-    system->shutdown();
     system.reset();
   }
 
@@ -207,8 +207,6 @@ TEST_F(PythonSystemTest, TestEventDelivery) {
 }
 
 
-
-
 TEST_F(PythonSystemTest, TestDeepEntitySubclass) {
   try {
     Entity e = em->create();
@@ -220,6 +218,18 @@ TEST_F(PythonSystemTest, TestDeepEntitySubclass) {
     auto script2 = e2.assign<PythonComponent>("entityx.tests.deep_subclass_test", "DeepSubclassTest2");
     ASSERT_TRUE(script2->object.attr("test_deeper_subclass"));
     script2->object.attr("test_deeper_subclass")();
+  } catch (...) {
+    PyErr_Print();
+    PyErr_Clear();
+    ASSERT_FALSE(true) << "Python exception.";
+  }
+}
+
+
+TEST_F(PythonSystemTest, TestEntityCreationFromPython) {
+  try {
+    py::object test = py::import("entityx.tests.create_entities_from_python_test");
+    test.attr("create_entities_from_python_test")();
   } catch (...) {
     PyErr_Print();
     PyErr_Clear();
