@@ -82,11 +82,13 @@ BOOST_PYTHON_MODULE(entityx_python_test) {
 
 class PythonSystemTest : public ::testing::Test {
 protected:
-  PythonSystemTest() : ev(EventManager::make()), em(EntityManager::make(ev)) {
+  PythonSystemTest() {
     assert(PyImport_AppendInittab("entityx_python_test", initentityx_python_test) != -1 && "Failed to initialize entityx_python_test Python module");
   }
 
   void SetUp() {
+    ev = EventManager::make();
+    em = EntityManager::make(ev);
     vector<string> paths;
     paths.push_back(ENTITYX_PYTHON_TEST_DATA);
     system = entityx::make_shared<PythonSystem>(em);
@@ -101,6 +103,8 @@ protected:
 
   void TearDown() {
     system.reset();
+    em.reset();
+    ev.reset();
   }
 
   entityx::shared_ptr<PythonSystem> system;
