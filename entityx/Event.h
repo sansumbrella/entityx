@@ -18,7 +18,8 @@
 #include <list>
 #include <utility>
 #include "entityx/config.h"
-#include "entityx/3rdparty/simplesignal.h"
+// https://bitbucket.org/danielko/simplesignal (public domain)
+#include "entityx/3rdparty/SimpleSignal++.hpp"
 
 
 namespace entityx {
@@ -37,9 +38,8 @@ class BaseEvent {
 };
 
 
-typedef Simple::Signal<void (const BaseEvent*)> EventSignal;
-typedef entityx::shared_ptr<EventSignal> EventSignalPtr;
-typedef entityx::weak_ptr<EventSignal> EventSignalWeakPtr;
+typedef simpsig::Signal<const BaseEvent*> EventSignal;
+typedef simpsig::Slot<const BaseEvent*> EventSlot;
 
 
 /**
@@ -65,29 +65,19 @@ class Event : public BaseEvent {
 
 class BaseReceiver {
  public:
-  virtual ~BaseReceiver() {
-    for (auto connection : connections_) {
-      auto &ptr = connection.first;
-      if (!ptr.expired()) {
-        ptr.lock()->disconnect(connection.second);
-      }
-    }
-  }
-
-  // Return number of signals connected to this receiver.
+  /// Return number of signals connected to this receiver.
   int connected_signals() const {
     size_t size = 0;
-    for (auto connection : connections_) {
-      if (!connection.first.expired()) {
+
+    for (auto &slot : slots_)
+      if (slot.connected())
         size++;
-      }
-    }
     return size;
   }
 
  private:
   friend class EventManager;
-  std::list<std::pair<EventSignalWeakPtr, size_t>> connections_;
+  std::list<EventSlot> slots_;
 };
 
 
@@ -116,22 +106,21 @@ class EventManager : public entityx::enable_shared_from_this<EventManager>, boos
    *
    * eg.
    *
-   * struct ExplosionReceiver : public Receiver<ExplosionReceiver> {
-   *   void receive(const Explosion &explosion) {
-   *   }
-   * };
+   *     struct ExplosionReceiver : public Receiver<ExplosionReceiver> {
+   *       void receive(const Explosion &explosion) {
+   *       }
+   *     };
    *
-   * ExplosionReceiver receiver;
-   * em.subscribe<Explosion>(receiver);
+   *     ExplosionReceiver receiver;
+   *     em.subscribe<Explosion>(receiver);
    */
   template <typename E, typename Receiver>
   void subscribe(Receiver &receiver) {  //NOLINT
     void (Receiver::*receive)(const E &) = &Receiver::receive;
-    auto sig = signal_for(E::family());
+    auto &sig = signal_for(E::family());
     auto wrapper = EventCallbackWrapper<E>(boost::bind(receive, &receiver, _1));
-    auto connection = sig->connect(wrapper);
-    static_cast<BaseReceiver&>(receiver).connections_.push_back(
-      std::make_pair(EventSignalWeakPtr(sig), connection));
+    auto slot = sig.connect(wrapper);
+    static_cast<BaseReceiver&>(receiver).slots_.push_back(std::move(slot));
   }
 
   /**
@@ -141,35 +130,32 @@ class EventManager : public entityx::enable_shared_from_this<EventManager>, boos
    *
    * eg.
    *
-   * entityx::shared_ptr<EventManager> em(entityx::make_shared<EventManager>());
-   * em->emit<Explosion>(10);
+   *     entityx::shared_ptr<EventManager> em(entityx::make_shared<EventManager>());
+   *     em->emit<Explosion>(10);
    *
    */
   template <typename E, typename ... Args>
   void emit(Args && ... args) {
     E event(args ...);
-    auto sig = signal_for(E::family());
-    sig->emit(static_cast<BaseEvent*>(&event));
+    auto &sig = signal_for(E::family());
+    sig.emit(static_cast<BaseEvent*>(&event));
   }
 
+  /// Return number of connected receivers.
   int connected_receivers() const {
     int size = 0;
-    for (auto pair : handlers_) {
-      size += pair.second->size();
-    }
+    for (auto &it : handlers_)
+      size += it.second.size();
     return size;
   }
 
  private:
   EventManager() {}
 
-  EventSignalPtr signal_for(int id) {
+  EventSignal &signal_for(int id) {
     auto it = handlers_.find(id);
-    if (it == handlers_.end()) {
-      EventSignalPtr sig(entityx::make_shared<EventSignal>());
-      handlers_.insert(std::make_pair(id, sig));
-      return sig;
-    }
+    if (it == handlers_.end())
+      it = handlers_.insert(std::make_pair(id, EventSignal())).first;
     return it->second;
   }
 
@@ -181,7 +167,7 @@ class EventManager : public entityx::enable_shared_from_this<EventManager>, boos
     boost::function<void(const E &)> callback;
   };
 
-  boost::unordered_map<int, EventSignalPtr> handlers_;
+  boost::unordered_map<int, EventSignal> handlers_;
 };
 
 }  // namespace entityx
