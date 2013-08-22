@@ -13,7 +13,10 @@
 #include <vector>
 #include "entityx/Event.h"
 
+
 using entityx::EventManager;
+using entityx::Event;
+using entityx::Receiver;
 
 
 struct Explosion : public Event<Explosion> {
@@ -36,4 +39,32 @@ TEST(EventManagerTest, TestEmitReceive) {
   ASSERT_EQ(0, explosion_system.damage_received);
   em->emit<Explosion>(10);
   ASSERT_EQ(10, explosion_system.damage_received);
+}
+
+
+TEST(EventManagerTest, TestReceiverExpired) {
+  auto em = EventManager::make();
+  {
+    ExplosionSystem explosion_system;
+    em->subscribe<Explosion>(explosion_system);
+    em->emit<Explosion>(10);
+    ASSERT_EQ(10, explosion_system.damage_received);
+    ASSERT_EQ(1, explosion_system.connected_signals());
+    ASSERT_EQ(1, em->connected_receivers());
+  }
+  ASSERT_EQ(0, em->connected_receivers());
+}
+
+
+TEST(EventManagerTest, TestSenderExpired) {
+  ExplosionSystem explosion_system;
+  {
+    auto em = EventManager::make();
+    em->subscribe<Explosion>(explosion_system);
+    em->emit<Explosion>(10);
+    ASSERT_EQ(10, explosion_system.damage_received);
+    ASSERT_EQ(1, explosion_system.connected_signals());
+    ASSERT_EQ(1, em->connected_receivers());
+  }
+  ASSERT_EQ(0, explosion_system.connected_signals());
 }

@@ -39,7 +39,7 @@ class BaseEvent {
 
 typedef Simple::Signal<void (const BaseEvent*)> EventSignal;
 typedef entityx::shared_ptr<EventSignal> EventSignalPtr;
-typedef entityx::weak_ptr<EventSignal> EventSignalPtr;
+typedef entityx::weak_ptr<EventSignal> EventSignalWeakPtr;
 
 
 /**
@@ -67,13 +67,27 @@ class BaseReceiver {
  public:
   virtual ~BaseReceiver() {
     for (auto connection : connections_) {
-      *connection.first->disconnect(connection.second);
+      auto &ptr = connection.first;
+      if (!ptr.expired()) {
+        ptr.lock()->disconnect(connection.second);
+      }
     }
+  }
+
+  // Return number of signals connected to this receiver.
+  int connected_signals() const {
+    size_t size = 0;
+    for (auto connection : connections_) {
+      if (!connection.first.expired()) {
+        size++;
+      }
+    }
+    return size;
   }
 
  private:
   friend class EventManager;
-  std::list<std::pair<EventSignalPtr, size_t>> connections_;
+  std::list<std::pair<EventSignalWeakPtr, size_t>> connections_;
 };
 
 
@@ -116,7 +130,8 @@ class EventManager : public entityx::enable_shared_from_this<EventManager>, boos
     auto sig = signal_for(E::family());
     auto wrapper = EventCallbackWrapper<E>(boost::bind(receive, &receiver, _1));
     auto connection = sig->connect(wrapper);
-    static_cast<BaseReceiver&>(receiver).connections_.push_back(std::make_pair(sig, connection));
+    static_cast<BaseReceiver&>(receiver).connections_.push_back(
+      std::make_pair(EventSignalWeakPtr(sig), connection));
   }
 
   /**
@@ -135,6 +150,14 @@ class EventManager : public entityx::enable_shared_from_this<EventManager>, boos
     E event(args ...);
     auto sig = signal_for(E::family());
     sig->emit(static_cast<BaseEvent*>(&event));
+  }
+
+  int connected_receivers() const {
+    int size = 0;
+    for (auto pair : handlers_) {
+      size += pair.second->size();
+    }
+    return size;
   }
 
  private:

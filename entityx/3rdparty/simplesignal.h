@@ -196,6 +196,27 @@ public:
     link->decref();
     return collector.result();
   }
+  // Number of connected slots.
+  int
+  size ()
+  {
+    int size = 0;
+    SignalLink *link = callback_ring_;
+    link->incref();
+    do
+      {
+        if (link->function != nullptr)
+          {
+            size++;
+          }
+        SignalLink *old = link;
+        link = old->next;
+        link->incref();
+        old->decref();
+      }
+    while (link != callback_ring_);
+    return size;
+  }
 };
 
 } // Lib
