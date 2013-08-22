@@ -8,16 +8,16 @@
  * Author: Alec Thomas <alec@swapoff.org>
  */
 
+#include <gtest/gtest.h>
 #include <string>
 #include <vector>
-#include <gtest/gtest.h>
 #include "entityx/Event.h"
 
-using namespace entityx;
-using namespace boost;
+using entityx::EventManager;
+
 
 struct Explosion : public Event<Explosion> {
-  Explosion(int damage) : damage(damage) {}
+  explicit Explosion(int damage) : damage(damage) {}
   int damage;
 };
 
