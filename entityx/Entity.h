@@ -11,6 +11,7 @@
 #pragma once
 
 
+#include <stdint.h>
 #include <algorithm>
 #include <bitset>
 #include <cassert>
@@ -18,7 +19,6 @@
 #include <iterator>
 #include <list>
 #include <set>
-#include <stdint.h>
 #include <string>
 #include <utility>
 #include <vector>
