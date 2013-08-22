@@ -254,9 +254,37 @@ class GameManager : public Manager {
 
 EntityX has the following build and runtime requirements:
 
-- A C++ compiler that supports a basic set of C++11 features (ie. recent clang, recent gcc, and maybe (untested) VC++ with the [Nov 2012 CTP](http://www.microsoft.com/en-us/download/details.aspx?id=35515)).
+- A C++ compiler that supports a basic set of C++11 features (ie. Clang >= 3.1, GCC >= 4.7, and maybe (untested) VC++ with the [Nov 2012 CTP](http://www.microsoft.com/en-us/download/details.aspx?id=35515)).
 - [CMake](http://cmake.org/)
-- [Boost](http://boost.org) `1.48.0` or higher (links against `boost::signals2`).
+- [Boost](http://boost.org) `1.48.0` (headers only unless using boost::python).
+
+### C++11 compiler and library support
+
+C++11 support is quite...raw. To make life more interesting, C++ support really means two things: language features supported by the compiler, and library features.
+
+### Installing on Ubuntu 12.04
+
+On Ubuntu LTS (12.04, Precise) you will need to add some PPAs to get either clang-3.1 or gcc-4.7. Respective versions prior to these do not work.
+
+For gcc-4.7:
+
+```bash
+sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+sudo apt-get update -qq
+sudo apt-get install gcc-4.7 g++4.7
+CC=gcc-4.7 CXX=g++4.7 cmake ...
+```
+
+For clang-3.1 (or 3.2 or 3.3):
+
+```bash
+sudo apt-add-repository ppa:h-rayflood/llvm
+sudo apt-get update -qq
+sudo apt-get install clang-3.1
+CC=clang-3.1 CXX=clang++3.1 cmake ...
+```
+
+### Options
 
 Once these dependencies are installed you should be able to build and install EntityX as below. The following options can be passed to cmake to modify how EntityX is built:
 
@@ -264,6 +292,9 @@ Once these dependencies are installed you should be able to build and install En
 - `-DENTITYX_RUN_BENCHMARKS=1` - In conjunction with `-DENTITYX_BUILD_TESTING=1`, also build benchmarks.
 - `-DENTITYX_USE_CPP11_STDLIB=1` - For Clang, specify whether to use `-stdlib=libc++`.
 - `-DENTITYX_USE_STD_SHARED_PTR=1` - Use `std::shared_ptr<T>` (and friends) rather than the Boost equivalents. This does not eliminate the need for Boost, but is useful if the rest of your application uses `std::shared_ptr<T>`.
+- `-DENTITYX_MAX_COMPONENTS=64` - Override the maximum number of components that can be assigned to each entity.
+- `-DENTITYX_BUILD_SHARED=1` - Whether to build shared libraries (defaults to 1).
+- `-DENTITYX_BUILD_TESTING=0` - Whether to build tests (defaults to 0). Run with "make && make test".
 
 For a production build, you'll typically only need the `-DENTITYX_USE_STD_SHARED_PTR=1` flag, if any.
 
@@ -272,9 +303,9 @@ Once you have selected your flags, build and install with:
 ```sh
 mkdir build
 cd build
-cmake [-DENTITYX_BUILD_TESTING=1] [-DENTITYX_RUN_BENCHMARKS=1] [-DENTITYX_USE_CPP11_STDLIB=1] [-DENTITYX_USE_STD_SHARED_PTR=1] ..
+cmake <flags> ..
 make
 make install
 ```
 
-EntityX has currently only been tested on Mac OSX (Lion and Mountain Lion), and Linux Debian. Reports and patches for builds on other platforms are welcome.
+EntityX has currently only been tested on Mac OSX (Lion and Mountain Lion), and Linux Debian 12.04. Reports and patches for builds on other platforms are welcome.
