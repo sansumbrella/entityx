@@ -17,10 +17,11 @@
 // boost::python smart pointer adapter for std::shared_ptr<T>
 #if (ENTITYX_HAVE_STD_SHARED_PTR && ENTITYX_USE_STD_SHARED_PTR)
 
+#include <boost/config.hpp>
 #include <boost/python.hpp>
 #include <memory>
 
-#ifdef ENTITYX_NEED_GET_POINTER_SHARED_PTR_SPECIALIZATION
+#ifdef BOOST_NO_CXX11_SMART_PTR
 
 namespace std {
 

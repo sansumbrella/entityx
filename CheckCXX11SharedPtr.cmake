@@ -28,24 +28,6 @@ endif ()
 check_cxx_source_compiles(
 "
 #include <memory>
-#include <boost/get_pointer.hpp>
-
-namespace std {
-template <class T> inline T * get_pointer(const std::shared_ptr<T> &p) {
-  return p.get();
-}
-}
-
-int main() {
-    return 0;
-}
-"
-ENTITYX_NEED_GET_POINTER_SHARED_PTR_SPECIALIZATION
-)
-
-check_cxx_source_compiles(
-"
-#include <memory>
 
 int main() { std::shared_ptr<int>(); }
 "
