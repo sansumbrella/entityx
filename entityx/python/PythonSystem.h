@@ -15,25 +15,23 @@
 #include "entityx/config.h"
 
 // boost::python smart pointer adapter for std::shared_ptr<T>
-#if (defined(ENTITYX_HAVE_STD_SHARED_PTR) && defined(ENTITYX_USE_STD_SHARED_PTR))
+#if (ENTITYX_HAVE_STD_SHARED_PTR && ENTITYX_USE_STD_SHARED_PTR)
 
 #include <boost/python.hpp>
 #include <memory>
 
-namespace std {
+#ifndef ENTITYX_HAVE_GET_POINTER_SHARED_PTR_SPECIALIZATION
 
-// If Boost was built with c++11 library support, it may have already defined
-// a specialisation for get_pointer(std::shared_ptr).
-#if defined(BOOST_NO_CXX11_SMART_PTR)
+namespace std {
 
 // This may or may not work... it definitely does not work on OSX.
 template <class T> inline T * get_pointer(const std::shared_ptr<T> &p) {
   return p.get();
 }
 
-#endif
-
 }
+
+#endif
 
 namespace boost {
 namespace python {
@@ -47,6 +45,7 @@ template <typename T> struct pointee<std::shared_ptr<T> > {
 
 #endif
 
+#include <list>
 #include <vector>
 #include <string>
 #include <boost/python.hpp>
@@ -113,7 +112,7 @@ public:
    * @param handler_name The default implementation of can_send() tests for
    *     the existence of this attribute on an Entity.
    */
-  PythonEventProxy(const std::string &handler_name) : handler_name(handler_name) {}
+  explicit PythonEventProxy(const std::string &handler_name) : handler_name(handler_name) {}
   virtual ~PythonEventProxy() {}
 
   /**
