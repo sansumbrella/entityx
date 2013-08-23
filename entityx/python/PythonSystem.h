@@ -20,7 +20,7 @@
 #include <boost/python.hpp>
 #include <memory>
 
-#ifndef ENTITYX_HAVE_GET_POINTER_SHARED_PTR_SPECIALIZATION
+#ifdef ENTITYX_NEED_GET_POINTER_SHARED_PTR_SPECIALIZATION
 
 namespace std {
 

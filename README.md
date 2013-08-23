@@ -310,6 +310,7 @@ CC=clang-3.1 CXX=clang++3.1 cmake ...
 
 Once these dependencies are installed you should be able to build and install EntityX as below. The following options can be passed to cmake to modify how EntityX is built:
 
+- `-DENTITYX_BUILD_PYTHON=1` - Build Python scripting integration.
 - `-DENTITYX_BUILD_TESTING=1` - Build tests (run with `make test`).
 - `-DENTITYX_RUN_BENCHMARKS=1` - In conjunction with `-DENTITYX_BUILD_TESTING=1`, also build benchmarks.
 - `-DENTITYX_USE_CPP11_STDLIB=1` - For Clang, specify whether to use `-stdlib=libc++`.
