@@ -130,6 +130,9 @@ public:
   template <typename C>
   ComponentHandle<C> assign_from_copy(const C &component);
 
+	template <typename C>
+	ComponentHandle<C> get_or_assign();
+
   template <typename C, typename ... Args>
   ComponentHandle<C> replace(Args && ... args);
 
@@ -861,6 +864,16 @@ template <typename C>
 ComponentHandle<C> Entity::assign_from_copy(const C &component) {
   assert(valid());
   return manager_->assign<C>(id_, std::forward<const C &>(component));
+}
+
+template <typename C>
+ComponentHandle<C> Entity::get_or_assign() {
+	assert(valid());
+	auto handle = component<C>();
+	if (! handle) {
+		handle = assign<C>();
+	}
+	return handle;
 }
 
 template <typename C, typename ... Args>
